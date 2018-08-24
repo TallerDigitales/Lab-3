@@ -1,80 +1,69 @@
-module ALU #(parameter bus = 4) (input logic [bus-1:0]a,b,input logic [3:0] ALUFUN,CNVZI,output logic [bus-1:0] s,output logic [3:0] CNVZO);
+module ALU #(parameter bus = 4) (input logic [bus-1:0]a,b,input logic [3:0] ALUFUN,output logic [bus-1:0] s,output logic [3:0] CNVZ);
 
-
-	logic Ci,Ni,Vi,Zi;
 	logic Co,No,Vo,Zo;
 	
-	assign Ci = CNVZI[3];
-	//assign Ni = CNVZI[2];
-	//assign Vi = CNVZI[1];
-	//assign Zi = CNVZI[0];
+	assign CNVZ[3] = Co;
+	assign CNVZ[2] = No;
+	assign CNVZ[1] = Vo;
+	assign CNVZ[0] = Zo;
 	
+	//Flags
 	
-	assign CNVZO[3] = Co;
-	assign CNVZO[2] = No;
-	assign CNVZO[1] = Vo;
-	assign CNVZO[0] = Zo;
-
-	//selectors
-	logic selrev,selc1,selc,selmov,selnot,selc3;
-	logic [1:0] selop;
+	logic isShiftArith;
+	logic isFunctArith;
+	logic isFunctLogic;
+	logic isFunctShift;
 	
-	ALUController #(bus) _alucontroller(ALUFUN,selrev,selc1,selc,selop,selmov,selnot,selc3);
+	logic isShiftLeft;
+	logic[1:0] selLogic;
 	
+	assign isShiftArith = ALUFUN[1];
+	assign isFunctShift = ~ ALUFUN[3] & ~ ALUFUN[2];
+	assign isFunctArith = ALUFUN[3];
+	assign isFunctLogic = ~ALUFUN[3] & ALUFUN[2];
+	assign isShiftLeft = ALUFUN[0];
+	assign selLogic = ALUFUN[1:0];
+		
 	
-	logic [bus-1:0] first_and_operand;
-	logic [bus-1:0] andout,orout,xorout, notout, addout,c1out;
+	//selectors	
+	logic [bus-1:0] shiftout, logicout ;
 	
-	logic [bus-1:0] reva,revb;
+	//logic
+	logic [bus-1:0] andout,orout,xorout, notout;
 	
-	Muxr #(bus) _muxand(a,b,selmov,first_and_operand);
-	
-	Andr #(bus) _and(first_and_operand,b,andout);
-	
-	Orr #(bus) _or(a,c1out,orout);
+	Andr #(bus) _and(a,b,andout);
+	Orr #(bus) _or(a,b,orout);
 	Eor #(bus) _eor(a,b,xorout);
+	Not #(bus) _not(a, notout);
+	Muxr4 #(bus) _mux4(orout, andout, xorout, notout, selLogic, logicout)
 	
-	reverser #(bus) _reverser(a,b,selrev,reva,revb);
+	//shifts
 	
-	logic [bus-1:0] c1flagout;
-	multiout #(bus) _c1flag(selc1,c1flagout);
+	logic [bus-1:0] slout, srout;
 	
-	//Nandr #(bus) _c1comp(revb,c1flagout,c1out);
-	Eor #(bus) _c1comp(revb,c1flagout,c1out);
+	ShiftLeft _shiftL(a, b, isShiftArith, slout);
+	ShiftRight _shiftR(a, b, isShiftArith, srout);
+	Muxr #(bus) _mux2(slout, srout, isShiftLeft, shiftout);
 	
-	logic [bus-1:0] opout;
-	Muxr4 #(bus) _muxrop(andout,orout,xorout,addout,selop,opout);
+	//arithmetic
 	
-	Muxr  #(bus) _muxrout(opout,c1out,selnot,s);
+	logic [bus-1:0] addout, c2out;
+	logic isSubstraction;
+	logic [bus-1:0] isSubtractionExt;
+	logic cout;
 	
+	assign isSubstraction = ALUFUN[3] & ALUFUN[0];
+	SignExtension #(bus,1) _ext (isSubstraction, isSubtractionExt);
 	
-	logic cout1,cout;
-	logic [bus-1:0] sumouttmp,cparamext;
-	Adder #(bus) _adder1(reva,c1out,selc1,sumouttmp,cout1);
-	Adder #(bus) _adder2(sumouttmp,cparamext,selc,addout,cout);
+	Eor #(bus) _c2 (b, isSubstractionExt, c2out);
 	
-	logic [bus-1:0] zeroext;
-	logic third_add_operand;
-	
-	Muxr  #(1) _muxradd_third_operand(0,Ci,selc3,third_add_operand);
-	
-	
-	ZeroExtension #(bus,1) _ext(third_add_operand,zeroext);
-	
-	logic [bus-1:0] c1flagout2;
-	multiout #(bus) _c1flag2(selc3,c1flagout2);
-	
-	//Nandr #(bus) _c1comp2(zeroext,c1flagout2,cparamext);
-	Eor #(bus) _c1comp2(zeroext,c1flagout2,cparamext);
-	
-	logic arithmetic_operation;
-	assign arithmetic_operation = selop[0]& selop[1];
-	
-	assign Co = cout & arithmetic_operation;
+	Adder #(bus) _adder(a, c2out, isSubstraction, addout,cout);
+		
+	assign Co = cout & isFunctArith;
 	assign Zo = ~| s;
-	assign No = s[bus-1] & arithmetic_operation;
+	assign No = s[bus-1] & isFunctArith;
 	
 	//verificar implementacion del overflow!
-	assign Vo = arithmetic_operation & ~(reva[bus-1] ^ revb[bus-1]) & (reva[bus-1] ^ s[bus-1]) & ~ selc1;
+	assign Vo = isFunctArith & ~(a[bus-1] ^ b[bus-1]) & (a[bus-1] ^ s[bus-1]) & ~ isSubstraction;
 
 endmodule
