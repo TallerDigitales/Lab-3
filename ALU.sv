@@ -35,7 +35,7 @@ module ALU #(parameter bus = 4) (input logic [bus-1:0]a,b,input logic [3:0] ALUF
 	Orr #(bus) _or(a,b,orout);
 	Eor #(bus) _eor(a,b,xorout);
 	Not #(bus) _not(a, notout);
-	Muxr4 #(bus) _mux4(orout, andout, xorout, notout, selLogic, logicout)
+	Muxr4 #(bus) _mux4(orout, andout, xorout, notout, selLogic, logicout);
 	
 	//shifts
 	
@@ -59,11 +59,21 @@ module ALU #(parameter bus = 4) (input logic [bus-1:0]a,b,input logic [3:0] ALUF
 	
 	Adder #(bus) _adder(a, c2out, isSubstraction, addout,cout);
 		
+		
+	//flags	
 	assign Co = cout & isFunctArith;
 	assign Zo = ~| s;
 	assign No = s[bus-1] & isFunctArith;
-	
-	//verificar implementacion del overflow!
 	assign Vo = isFunctArith & ~(a[bus-1] ^ b[bus-1]) & (a[bus-1] ^ s[bus-1]) & ~ isSubstraction;
+	
+	
+	//output
+	
+	logic [1:0] selout;
+	assign selout = ALUFUN [3:2];
+	Muxr4 #(bus) _muxOutput (shiftout, logicout, addout, addout, selout, s);
+	
+	
+	
 
 endmodule
