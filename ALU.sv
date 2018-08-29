@@ -34,16 +34,16 @@ module ALU #(parameter bus = 4) (input logic [bus-1:0]a,b,input logic [3:0] ALUF
 	Andr #(bus) _and(a,b,andout);
 	Orr #(bus) _or(a,b,orout);
 	Eor #(bus) _eor(a,b,xorout);
-	Not #(bus) _not(a, notout);
-	Muxr4 #(bus) _mux4(orout, andout, xorout, notout, selLogic, logicout);
+	Notr #(bus) _not(a, notout);
+	Muxr4 #(bus) _muxLogics(orout, andout, xorout, notout, selLogic, logicout);
 	
 	//shifts
 	
 	logic [bus-1:0] slout, srout;
 	
-	ShiftLeft _shiftL(a, b, isShiftArith, slout);
-	ShiftRight _shiftR(a, b, isShiftArith, srout);
-	Muxr #(bus) _mux2(slout, srout, isShiftLeft, shiftout);
+	ShiftLeft #(bus) _shiftL(a, b, isShiftArith, slout);
+	ShiftRight #(bus) _shiftR(a, b, isShiftArith, srout);
+	Muxr #(bus) _muxShifts(slout, srout, isShiftLeft, shiftout);
 	
 	//arithmetic
 	
@@ -55,7 +55,7 @@ module ALU #(parameter bus = 4) (input logic [bus-1:0]a,b,input logic [3:0] ALUF
 	assign isSubstraction = ALUFUN[3] & ALUFUN[0];
 	SignExtension #(bus,1) _ext (isSubstraction, isSubtractionExt);
 	
-	Eor #(bus) _c2 (b, isSubstractionExt, c2out);
+	Eor #(bus) _c2 (b, isSubtractionExt, c2out);
 	
 	Adder #(bus) _adder(a, c2out, isSubstraction, addout,cout);
 		
